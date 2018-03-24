@@ -17,7 +17,7 @@ public class BlockNestedJoin extends Join{
 	private int totalsize;
 
     /** The following fields are useful during execution of
-     ** the NestedJoin operation
+     ** the BlockNestedJoin operation
      **/
 	private int leftindex;     // Index of the join attribute in left table
     private int rightindex;    // Index of the join attribute in right table
@@ -56,6 +56,7 @@ public class BlockNestedJoin extends Join{
 		/* select number of tuples per batch **/
 		int tuplesize=schema.getTupleSize();
 		batchsize=Batch.getPageSize()/tuplesize;
+
 		int lefttuplesize = left.getSchema().getTupleSize();
 		leftbatchsize = Batch.getPageSize()/lefttuplesize;
 		leftbatches = new Batch[numBuff-2];
@@ -96,7 +97,7 @@ public class BlockNestedJoin extends Join{
 		}
 		out.close();
 	    }catch(IOException io){
-		System.out.println("NestedJoin:writing the temporay file error");
+		System.out.println("BlockNestedJoin:writing the temporay file error");
 		return false;
 	    }
 		//}
@@ -114,7 +115,7 @@ public class BlockNestedJoin extends Join{
 
 
     public Batch next(){
-	//System.out.print("NestedJoin:--------------------------in next----------------");
+	//System.out.print("BlockNestedJoin:--------------------------in next----------------");
 	//Debug.PPrint(con);
 	//System.out.println();
 	int i,j,k;
@@ -129,30 +130,31 @@ public class BlockNestedJoin extends Join{
 
 	    if(lcursi==0 && lcursj==0 && eosr){
 			/* new left page is to be fetched**/
-//		leftbatches =(Batch) left.next();
-		for(k = 0; k < numBuff - 2; ++k) {
-			leftbatches[k] =(Batch) left.next();
-			if(leftbatches[k] ==null){
-				eosl=true;
-				if(k == 0)
-					return outbatch;
-				break;
+//			leftbatches =(Batch) left.next();
+			for(k = 0; k < numBuff - 2; ++k) {
+				leftbatches[k] =(Batch) left.next();
+				if(leftbatches[k] == null){
+					if(k == 0) {
+						eosl=true;
+						return outbatch;
+					}
+					break;
+				}
 			}
-		}
-		numbatch = k;
-		totalsize = (numbatch-1) * batchsize + leftbatches[numbatch-1].size();
+			numbatch = k;
+			totalsize = (numbatch-1) * leftbatchsize + leftbatches[numbatch-1].size();
 
-		/* Whenver a new left page came , we have to start the
-		  scanning of right table
-		 */
-		try{
+			/* Whenver a new left page came , we have to start the
+			  scanning of right table
+			 */
+			try{
 
-		    in = new ObjectInputStream(new FileInputStream(rfname));
-		    eosr=false;
-		}catch(IOException io){
-		    System.err.println("NestedJoin:error in reading the file");
-		    System.exit(1);
-		}
+				in = new ObjectInputStream(new FileInputStream(rfname));
+				eosr=false;
+			}catch(IOException io){
+				System.err.println("BlockNestedJoin:error in reading the file");
+				System.exit(1);
+			}
 
 	    }
 
@@ -205,14 +207,14 @@ public class BlockNestedJoin extends Join{
 		    try{
 			in.close();
 		    }catch (IOException io){
-			System.out.println("NestedJoin:Error in temporary file reading");
+			System.out.println("BlockNestedJoin:Error in temporary file reading");
 		    }
 		    eosr=true;
 		}catch(ClassNotFoundException c){
-		    System.out.println("NestedJoin:Some error in deserialization ");
+		    System.out.println("BlockNestedJoin:Some error in deserialization ");
 		    System.exit(1);
 		}catch(IOException io){
-		    System.out.println("NestedJoin:temporary file reading error");
+		    System.out.println("BlockNestedJoin:temporary file reading error");
 		    System.exit(1);
 		}
 	    }
