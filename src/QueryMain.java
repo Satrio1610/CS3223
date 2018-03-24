@@ -25,12 +25,15 @@ public class QueryMain{
 	/** Enter the number of bytes per page **/
 
 	System.out.println("enter the number of bytes per page");
-	    BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
-	    String temp;
+//	    BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
+	    String temp = "400";
+	    System.out.println("@@@@number of bytes per page: "+temp);
 	    try {
-		temp = in.readLine();
-		int pagesize = Integer.parseInt(temp);
-		Batch.setPageSize(pagesize);
+//		temp = in.readLine();
+            int pagesize = Integer.parseInt(temp);
+            temp = "30";
+            System.out.println("@@@@number of pages: "+temp);
+            Batch.setPageSize(pagesize);
 		} catch (Exception e) {
 		e.printStackTrace();
 	 }
@@ -38,8 +41,10 @@ public class QueryMain{
 
 
 
-	String queryfile = args[0];
-	String resultfile = args[1];
+//	String queryfile = args[0];
+//	String resultfile = args[1];
+	String queryfile = "qj.sql";
+	String resultfile = "output.txt";
 	FileInputStream source = null;
 	try{
 	   source = new FileInputStream(queryfile);
@@ -83,7 +88,7 @@ public class QueryMain{
 	    System.out.println("enter the number of buffers available");
 
 	    try {
-		temp = in.readLine();
+//		temp = in.readLine();
 		int numBuff = Integer.parseInt(temp);
 		BufferManager bm = new BufferManager(numBuff,numJoin);
 	    } catch (Exception e) {
@@ -145,11 +150,11 @@ System.out.println("enter 1 to continue, 0 to abort ");
 
 
 	    try {
-		temp = in.readLine();
-		int flag = Integer.parseInt(temp);
-		if(flag==0){
-			System.exit(1);
-		}
+//		temp = in.readLine();
+//		int flag = Integer.parseInt(temp);
+//		if(flag==0){
+//			System.exit(1);
+//		}
 
 	    } catch (Exception e) {
 		e.printStackTrace();

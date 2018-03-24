@@ -146,7 +146,7 @@ public class PlanCost{
 	    joincost = leftpages*rightpages;
 	    break;
 	case JoinType.BLOCKNESTED:
-	    joincost = 0;
+	    joincost = ((leftpages+numbuff-1)/numbuff)*rightpages;
 	    break;
 	case JoinType.SORTMERGE:
 	    joincost = 0;

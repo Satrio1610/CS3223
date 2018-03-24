@@ -7,23 +7,23 @@ import java.util.Vector;
 
 public class Project extends Operator{
 
-    Operator base;
-    Vector attrSet;
-	int batchsize;  // number of tuples per outbatch
+    private Operator base;
+    private Vector attrSet;
+	private int batchsize;  // number of tuples per outbatch
 
 
     /** The following fields are requied during execution
      ** of the Project Operator
      **/
 
-    Batch inbatch;
-    Batch outbatch;
+	private Batch inbatch;
+    private Batch outbatch;
 
     /** index of the attributes in the base operator
      ** that are to be projected
      **/
 
-    int[] attrIndex;
+	private int[] attrIndex;
 
 
     public Project(Operator base, Vector as,int type){

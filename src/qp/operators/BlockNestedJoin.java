@@ -56,7 +56,6 @@ public class BlockNestedJoin extends Join{
 		/* select number of tuples per batch **/
 		int tuplesize=schema.getTupleSize();
 		batchsize=Batch.getPageSize()/tuplesize;
-
 		int lefttuplesize = left.getSchema().getTupleSize();
 		leftbatchsize = Batch.getPageSize()/lefttuplesize;
 		leftbatches = new Batch[numBuff-2];
@@ -130,31 +129,30 @@ public class BlockNestedJoin extends Join{
 
 	    if(lcursi==0 && lcursj==0 && eosr){
 			/* new left page is to be fetched**/
-//			leftbatches =(Batch) left.next();
-			for(k = 0; k < numBuff - 2; ++k) {
-				leftbatches[k] =(Batch) left.next();
-				if(leftbatches[k] == null){
-					if(k == 0) {
-						eosl=true;
-						return outbatch;
-					}
-					break;
-				}
+//		leftbatches =(Batch) left.next();
+		for(k = 0; k < numBuff - 2; ++k) {
+			leftbatches[k] =(Batch) left.next();
+			if(leftbatches[k] ==null){
+				eosl=true;
+				if(k == 0)
+					return outbatch;
+				break;
 			}
-			numbatch = k;
-			totalsize = (numbatch-1) * leftbatchsize + leftbatches[numbatch-1].size();
+		}
+		numbatch = k;
+		totalsize = (numbatch-1) * batchsize + leftbatches[numbatch-1].size();
 
-			/* Whenver a new left page came , we have to start the
-			  scanning of right table
-			 */
-			try{
+		/* Whenver a new left page came , we have to start the
+		  scanning of right table
+		 */
+		try{
 
-				in = new ObjectInputStream(new FileInputStream(rfname));
-				eosr=false;
-			}catch(IOException io){
-				System.err.println("BlockNestedJoin:error in reading the file");
-				System.exit(1);
-			}
+		    in = new ObjectInputStream(new FileInputStream(rfname));
+		    eosr=false;
+		}catch(IOException io){
+		    System.err.println("BlockNestedJoin:error in reading the file");
+		    System.exit(1);
+		}
 
 	    }
 
