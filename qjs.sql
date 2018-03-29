@@ -1,0 +1,3 @@
+SELECT *
+FROM CUSTOMER,CART
+WHERE CUSTOMER.cid=CART.cid,CUSTOMER.firstname>="b",CART.status>"d"
