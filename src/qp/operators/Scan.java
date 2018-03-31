@@ -29,7 +29,7 @@ public class Scan extends Operator {
 
     boolean eos;            // To indicate whether end of stream reached or not
 
-
+    static int counter = 0;
     /**
      * Constructor - just save filename
      */
@@ -51,12 +51,15 @@ public class Scan extends Operator {
      */
 
     public boolean open() {
+        if (!filename.equals("SMJtemp.tbl")) {
 
+            counter++;
+        }
         /** num of tuples per batch**/
         int tuplesize = schema.getTupleSize();
         batchsize = Batch.getPageSize() / tuplesize;
 
-        //System.out.println("Scan:----------Scanning:"+tabname);
+//        System.out.println("Scan:----------Scanning:"+tabname);
         eos = false;
 
         try {
@@ -81,7 +84,6 @@ public class Scan extends Operator {
         /** The file reached its end and no more to read **/
 
         if (eos) {
-            close();
             return null;
         }
 
@@ -117,6 +119,15 @@ public class Scan extends Operator {
 
 
     public boolean close() {
+//        System.out.println("Scan:----------Closing:"+tabname);
+        if (!filename.equals("SMJtemp.tbl")) {
+
+            counter--;
+        }
+//        System.out.println(counter);
+//        if (counter != 0) {
+//            System.exit(counter);
+//        }
         try {
             in.close();
         } catch (IOException e) {

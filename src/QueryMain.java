@@ -30,12 +30,12 @@ public class QueryMain {
 
         System.out.println("enter the number of bytes per page");
 //	    BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
-        String temp = "500";
+        String temp = "600";
         System.out.println("@@@@number of bytes per page: " + temp);
         try {
 //		temp = in.readLine();
             int pagesize = Integer.parseInt(temp);
-            temp = "3";
+            temp = "120";
             System.out.println("@@@@number of pages: " + temp);
             Batch.setPageSize(pagesize);
         } catch (Exception e) {
@@ -45,12 +45,14 @@ public class QueryMain {
 
 //	String queryfile = args[0];
 //	String resultfile = args[1];
-        String queryfile = "qp.sql";
+        String queryfile = "qjjj.sql";
         System.out.println("@@@@queryfile: " + queryfile);
 
         String resultfile;
         resultfile = "m1.txt";
         resultfile = "m2.txt";
+//        resultfile = "m3.txt";
+//        resultfile = "m4.txt";
         FileInputStream source = null;
         try {
             source = new FileInputStream(queryfile);

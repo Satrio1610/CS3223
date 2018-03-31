@@ -157,13 +157,15 @@ public class PlanCost {
 
         switch (joinType) {
             case JoinType.NESTEDJOIN:
-                joincost = leftpages * rightpages;
+                joincost = leftpages + leftpages * rightpages;
                 break;
             case JoinType.BLOCKNESTED:
-                joincost = ((leftpages + numbuff - 1) / numbuff) * rightpages;
+                joincost = leftpages + ((leftpages + numbuff - 1) / numbuff) * rightpages;
                 break;
             case JoinType.SORTMERGE:
-                joincost = 0;
+                int leftSortingCost = sortingCost(leftpages, numbuff);
+                int rightSortingCost = sortingCost(rightpages, numbuff);
+                joincost = leftpages + rightpages + leftSortingCost + rightSortingCost;
                 break;
             case JoinType.HASHJOIN:
                 joincost = 0;
@@ -175,6 +177,11 @@ public class PlanCost {
 
         cost = cost + joincost;
         return outtuples;
+    }
+
+    private int sortingCost(int numpages, int numbuff) {
+        int numpasses = 1 + (int) Math.ceil(Math.log(Math.ceil(numpages / (1.0 * numbuff))) / Math.log(numpages -1) );
+        return numpasses * (2 * numpages);
     }
 
 

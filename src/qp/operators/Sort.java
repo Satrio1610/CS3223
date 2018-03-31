@@ -140,7 +140,8 @@ public class Sort extends Operator {
                 /* if we need an internal sort, keep the buffer, sign the start pointer and return */
                 else {
                     start = 0;
-                    return base.close();
+                    boolean ret = base.close();
+                    return ret;
                 }
             }
 
@@ -330,6 +331,7 @@ public class Sort extends Operator {
      **/
 
     public boolean close() {
+
 		/*
 		 if(base.close())
 		 return true;

@@ -82,6 +82,9 @@ public class Debug {
         if (optype == OpType.JOIN) {
             int exprtype = ((Join) node).getJoinType();
             switch (exprtype) {
+                case JoinType.STANDARDJOIN:
+                    System.out.print("StandardJoin(");
+                    break;
                 case JoinType.NESTEDJOIN:
                     System.out.print("NestedJoin(");
                     break;
