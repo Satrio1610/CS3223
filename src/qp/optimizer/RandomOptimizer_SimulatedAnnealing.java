@@ -24,6 +24,7 @@ public class RandomOptimizer_SimulatedAnnealing extends RandomOptimizer {
 		// set initial state 
 		Operator state = rip.prepareInitialPlan();
 		modifySchema(state);
+		
 		// set initial temperature 
 		PlanCost pc = new PlanCost();
 		int startingCost = pc.getCost(state);
@@ -38,7 +39,7 @@ public class RandomOptimizer_SimulatedAnnealing extends RandomOptimizer {
 		int EQUILIBRIUM = sqlquery.getNumJoin() * 16;
 		
 		// while is not frozen
-		while(temperature < 1 && currentIteration >= NUM_ITERATION_BEFORE_FROZEN) {
+		while(temperature >= 1 && currentIteration < NUM_ITERATION_BEFORE_FROZEN) {
 			int currentEquilibriumCount = 0;
 			
 			pc = new PlanCost(); 
@@ -66,7 +67,7 @@ public class RandomOptimizer_SimulatedAnnealing extends RandomOptimizer {
 					float probabilityToAccept = (float)Math.exp(-1 * deltaCost/temperature);	
 					float probability = (float)Math.random();
 					
-					if(probability > probabilityToAccept) {
+					if(probability <= probabilityToAccept) {
 						state = neighbourState;
 						currentStateCost = currentNeighborCost;
 					}
@@ -80,7 +81,7 @@ public class RandomOptimizer_SimulatedAnnealing extends RandomOptimizer {
 				
 				currentEquilibriumCount ++;
 			}
-			
+			// if for this currentStage there is no change to the minimum cost, then start counting down to freeze the iteration
 			if(currentStageMinimumCost == minimumCost) {
 				currentIteration++;
 			}
@@ -89,10 +90,5 @@ public class RandomOptimizer_SimulatedAnnealing extends RandomOptimizer {
 		}
 		return minState;
 	}
-	
-
-	
-	
-
 
 }
