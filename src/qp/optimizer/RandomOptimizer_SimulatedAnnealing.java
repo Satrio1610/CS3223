@@ -74,7 +74,7 @@ public class RandomOptimizer_SimulatedAnnealing extends RandomOptimizer {
 				}
 				
 				// check if this the new minimum
-				if(minimumCost > currentStateCost) {
+				if(minimumCost <= currentStateCost) {
 					minimumCost = currentStateCost; 
 					minState = state;
 				}
@@ -84,6 +84,8 @@ public class RandomOptimizer_SimulatedAnnealing extends RandomOptimizer {
 			// if for this currentStage there is no change to the minimum cost, then start counting down to freeze the iteration
 			if(currentStageMinimumCost == minimumCost) {
 				currentIteration++;
+			} else {
+				currentIteration = 0; 
 			}
 			
 			temperature *= TEMPERATURE_REDUCTION_FACTOR; 
