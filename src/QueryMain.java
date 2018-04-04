@@ -6,6 +6,7 @@ import qp.operators.Debug;
 import qp.operators.Operator;
 import qp.optimizer.BufferManager;
 import qp.optimizer.RandomOptimizer;
+import qp.optimizer.RandomOptimizer_SimulatedAnnealing;
 import qp.parser.Scaner;
 import qp.parser.parser;
 import qp.utils.*;
@@ -30,7 +31,7 @@ public class QueryMain {
 
         System.out.println("enter the number of bytes per page");
 //	    BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
-        String temp = "600";
+        String temp = "90";
         System.out.println("@@@@number of bytes per page: " + temp);
         try {
 //		temp = in.readLine();
@@ -41,11 +42,9 @@ public class QueryMain {
         } catch (Exception e) {
             e.printStackTrace();
         }
-
-
 //	String queryfile = args[0];
 //	String resultfile = args[1];
-        String queryfile = "qjjj.sql";
+        String queryfile = "q.sql";
         System.out.println("@@@@queryfile: " + queryfile);
 
         String resultfile;
@@ -130,8 +129,9 @@ public class QueryMain {
         /** Use random Optimization algorithm to get a random optimized
          execution plan
          **/
-
-        RandomOptimizer ro = new RandomOptimizer(sqlquery);
+        RandomOptimizer ro;
+        ro = new RandomOptimizer(sqlquery);
+//        ro = new RandomOptimizer_SimulatedAnnealing(sqlquery);
         Operator logicalroot = ro.getOptimizedPlan();
         if (logicalroot == null) {
             System.out.println("root is null");

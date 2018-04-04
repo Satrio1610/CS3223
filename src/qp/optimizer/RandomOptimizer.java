@@ -382,7 +382,7 @@ public class RandomOptimizer {
     /**
      * modifies the schema of operators which are modified due to selecing an alternative neighbor plan
      **/
-    private void modifySchema(Operator node) {
+    public void modifySchema(Operator node) {
 
 
         if (node.getOpType() == OpType.JOIN) {
