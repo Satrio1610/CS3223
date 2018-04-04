@@ -1,0 +1,4 @@
+2
+8
+eid INTEGER 2000 PK 4
+aid INTEGER 2000 PK 4
