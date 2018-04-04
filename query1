@@ -1,3 +1,3 @@
-SELECT CUSTOMER.cid,CUSTOMER.sex,CUSTOMER.firstname 
-FROM CUSTOMER 
-WHERE CUSTOMER.sex="1"
+SELECT Flight.departs
+FROM Flight 
+WHERE Flight.departs = "10-12-2012|23:00"

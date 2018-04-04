@@ -1,4 +1,6 @@
 import java.io.*;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import qp.utils.*;
 /*
@@ -78,6 +80,8 @@ public class ConvertTxtToTbl {
 
 		boolean flag = false;
 		StringTokenizer tokenizer;
+		// date formatter
+		DateFormat df = new SimpleDateFormat("dd-MM-yyyy|HH:mm");
 		while ((line = in.readLine()) != null) {
 			linenum++;
 			tokenizer = new StringTokenizer(line);
@@ -102,6 +106,14 @@ public class ConvertTxtToTbl {
 					data.add(Float.valueOf(dataElement));
 				} else if (datatype == Attribute.STRING) {
 					data.add(dataElement);
+				} else if (datatype == Attribute.TIME) {
+					try {
+						data.add(df.parse(dataElement));	
+					} catch (Exception E) {
+						System.err.println("format mistake when parsing date");
+						System.exit(1);
+					}
+					
 				} else {
 					System.err.println("Invalid data type");
 					System.exit(1);

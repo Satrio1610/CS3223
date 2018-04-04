@@ -3,6 +3,11 @@
 package qp.operators;
 
 import qp.utils.*;
+
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.time.format.DateTimeFormatter;
+import java.util.Date;
 import java.util.Vector;
 
 public class Select extends Operator {
@@ -147,7 +152,8 @@ public class Select extends Operator {
 		Object srcValue = tuple.dataAt(index);
 		String checkValue = (String) con.getRhs();
 		int exprtype = con.getExprType();
-
+		
+		DateFormat df = new SimpleDateFormat("dd-MM-yyyy|HH:mm");
 		if (datatype == Attribute.INT) {
 			int srcVal = ((Integer) srcValue).intValue();
 			int checkVal = Integer.parseInt(checkValue);
@@ -223,6 +229,38 @@ public class Select extends Operator {
 			} else {
 				System.out.println("Select:Incorrect condition operator");
 			}
+		} else if (datatype == Attribute.TIME) {
+			
+			try {
+				Date currentDate = (Date)srcValue;
+				Date checkDate = df.parse(checkValue);	
+				
+				if (exprtype == Condition.LESSTHAN) {
+					if (currentDate.compareTo(checkDate) < 0)
+						return true;
+				} else if (exprtype == Condition.GREATERTHAN) {
+					if (currentDate.compareTo(checkDate) > 0)
+						return true;
+				} else if (exprtype == Condition.LTOE) {
+					if (currentDate.compareTo(checkDate) <= 0)
+						return true;
+				} else if (exprtype == Condition.GTOE) {
+					if (currentDate.compareTo(checkDate) >=0)
+						return true;
+				} else if (exprtype == Condition.EQUAL) {
+					if (currentDate.compareTo(checkDate) == 0)
+						return true;
+				} else if (exprtype == Condition.NOTEQUAL) {
+					if (currentDate.compareTo(checkDate) != 0)
+						return true;
+				} else {
+					System.out.println("Select:Incorrect condition operator");
+				}
+			} catch (Exception E) {
+				System.out.println("error on select: Incorrect date format");
+			}
+			
+			
 		}
 		return false;
 	}

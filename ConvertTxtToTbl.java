@@ -90,7 +90,7 @@ public class ConvertTxtToTbl {
 
 			Vector data = new Vector();
 			int attrIndex = 0;
-
+			DateFr
 			while (tokenizer.hasMoreElements()) {
 				String dataElement = tokenizer.nextToken();
 				int datatype = schema.typeOf(attrIndex);
@@ -102,6 +102,9 @@ public class ConvertTxtToTbl {
 					data.add(Float.valueOf(dataElement));
 				} else if (datatype == Attribute.STRING) {
 					data.add(dataElement);
+				} else if (datatype == Attribute.TIME) {
+					
+				}
 				} else {
 					System.err.println("Invalid data type");
 					System.exit(1);

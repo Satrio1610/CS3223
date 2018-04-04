@@ -87,6 +87,8 @@ public class RandomDB {
 					// System.out.println("String");
 				} else if (datatype[i].equals("REAL")) {
 					type = Attribute.REAL;
+				} else if (datatype[i].equals("TIME")) {
+					type = Attribute.TIME;
 				} else {
 					type = -1;
 					System.err.println("invalid data type");
@@ -130,7 +132,7 @@ public class RandomDB {
 				int numb = random.nextInt(range[0]);
 				while (pk[numb] == true) {
 					numb = random.nextInt(range[0]);
-				}	
+				}
 				pk[numb] = true;
 				outtbl.print(numb + "\t");
 
@@ -147,6 +149,51 @@ public class RandomDB {
 						if (keytype[j].equals("FK")) {
 							fk[value] = true;
 						}
+					} else if (datatype[j].equals("TIME")) {
+						int day = 0;
+						while (day == 0) {
+							day = random.nextInt(31);
+						}
+						String dayString = "" + day;
+
+						if (dayString.length() != 2) {
+							dayString = "0" + dayString;
+						}
+
+						int month = 0;
+						while (month == 0) {
+							month = random.nextInt(12);
+						}
+
+						String monthString = "" + month;
+
+						if (monthString.length() != 2) {
+							monthString = "0" + monthString;
+						}
+
+						int year = 0;
+						while (year < 1990 || year > 2020) {
+							year = random.nextInt(2020);
+						}
+
+						int hour = 0;
+						hour = random.nextInt(24);
+						String hourString = "" + hour;
+
+						if (hourString.length() != 2) {
+							hourString = "0" + hourString;
+						}
+
+						int minute = 0;
+						minute = random.nextInt(60);
+						String minuteString = "" + minute;
+
+						if (minuteString.length() != 2) {
+							minuteString = "0" + minuteString;
+						}
+
+						String finalTime = dayString + "-" +  monthString  + "-" + year  + "|" + hourString + ":" +  minuteString;
+						outtbl.print(finalTime + "\t");
 					}
 				}
 				if (i != numtuple - 1)
@@ -180,6 +227,8 @@ public class RandomDB {
 							outstat.print(range[i] + "\t");
 					}
 
+				} else if (datatype[i].equals("TIME")) {
+					outstat.print(numtuple + "\t");
 				}
 			}
 			outstat.close();
