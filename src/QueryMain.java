@@ -1,6 +1,7 @@
 /**
  * This is main driver program of the query processor
  **/
+import java.util.Date;
 
 import qp.operators.Debug;
 import qp.operators.Operator;
@@ -31,12 +32,12 @@ public class QueryMain {
 
         System.out.println("enter the number of bytes per page");
 //	    BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
-        String temp = "90";
+        String temp = "100000";
         System.out.println("@@@@number of bytes per page: " + temp);
         try {
 //		temp = in.readLine();
             int pagesize = Integer.parseInt(temp);
-            temp = "120";
+            temp = "10000";
             System.out.println("@@@@number of pages: " + temp);
             Batch.setPageSize(pagesize);
         } catch (Exception e) {
@@ -44,7 +45,7 @@ public class QueryMain {
         }
 //	String queryfile = args[0];
 //	String resultfile = args[1];
-        String queryfile = "q.sql";
+        String queryfile = "eq2.sql";
         System.out.println("@@@@queryfile: " + queryfile);
 
         String resultfile;
@@ -212,7 +213,10 @@ public class QueryMain {
                 out.print(((Integer) data).intValue() + "\t");
             } else if (data instanceof Float) {
                 out.print(((Float) data).floatValue() + "\t");
-            } else {
+            } else if (data instanceof Date) {
+                Date currentDate = (Date) data;
+                out.print(data.toString() + "\t");
+        } else {
                 out.print(((String) data) + "\t");
             }
         }

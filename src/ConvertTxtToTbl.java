@@ -1,3 +1,8 @@
+import java.io.*;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import qp.utils.*;
 /*
   assume that the first line of the file contain the names of the
   attributes of the relation. each subsequent line represents 1
@@ -8,11 +13,13 @@
 public class ConvertTxtToTbl {
 
     public static void main(String[] args) throws IOException {
+        System.out.println("myC");
         // check the arguments
         if (args.length != 1) {
             System.out.println("usage: java ConvertTxtToTbl <tablename> \n creats <tablename>.tbl files");
             System.exit(1);
         }
+        args[0] = "SCHEDULE";
         String tblname = args[0];
         String mdfile = tblname + ".md";
         String tblfile = tblname + ".tbl";
@@ -129,7 +136,8 @@ public class ConvertTxtToTbl {
 
             Vector data = new Vector();
             int attrIndex = 0;
-
+            // date formatter
+            DateFormat df = new SimpleDateFormat("dd-MM-yyyy|HH:mm");
             while (tokenizer.hasMoreElements()) {
                 String dataElement = tokenizer.nextToken();
                 int datatype = schema.typeOf(attrIndex);
@@ -141,7 +149,15 @@ public class ConvertTxtToTbl {
                     data.add(Float.valueOf(dataElement));
                 } else if (datatype == Attribute.STRING) {
                     data.add(dataElement);
-                } else {
+                }  else if (datatype == Attribute.TIME) {
+                try {
+                    data.add(df.parse(dataElement));
+                } catch (Exception E) {
+                    System.err.println("format mistake when parsing date");
+                    System.exit(1);
+                }
+
+            }else {
                     System.err.println("Invalid data type");
                     System.exit(1);
                 }

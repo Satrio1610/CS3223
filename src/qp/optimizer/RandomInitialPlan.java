@@ -179,7 +179,7 @@ public class RandomInitialPlan {
             int numJMeth = JoinType.numJoinTypes();
             int joinMeth = RandNumb.randInt(0, numJMeth - 1);
 //            joinMeth = -1;
-//            joinMeth = JoinType.SORTMERGE;
+            joinMeth = JoinType.BLOCKNESTED;
             System.out.println("@@@@joinMeth = " + joinMeth);
             jn.setJoinType(joinMeth);
 
