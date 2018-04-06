@@ -34,8 +34,8 @@ public class RandomDB {
             System.out.println("Usage: java RandomDB <dbname> <numrecords> ");
             System.exit(1);
         }
-        args[0] = "SCHEDULE";
-        args[1] = "20000";
+        args[0] = "CARTDETAILS";
+        args[1] = "200";
         String tblname = args[0];
         String srcfile = args[0] + ".det";
         String metafile = args[0] + ".md";

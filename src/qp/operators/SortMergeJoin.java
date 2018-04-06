@@ -8,6 +8,7 @@ import qp.utils.Attribute;
 import qp.utils.Batch;
 import qp.utils.Tuple;
 
+import javax.swing.plaf.basic.BasicTableHeaderUI;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -26,30 +27,27 @@ public class SortMergeJoin extends Join {
     private int rightAttrIndex;    // Index of the join attribute in right table
 
     private Batch leftBatch;
-    private Batch subLeftBatch;
     private Batch rightBatch;
     private Operator leftScaner;
-    private Operator subLeftScaner;
     private Operator rightScaner;
 
     ObjectOutputStream out;
 
-    private int leftStart = -1;
-    private int subLStart = -1;
-    private int rightStart = -1;
-    private Tuple leftLastTuple;
-    private int leftFirstMatchIdx = -1;
-    private int rightFirstMatchIdx = -1;
-    private int leftMidMatchIdx = -1;
-    private int rightMidMatchIdx = -1;
-    private boolean eos;  // Whether end of join
-    private boolean eols;  // Whether end of join
-    private boolean eoslb;  // Whether end of left batch
-    private boolean eolb;  // Whether end of left batch
-    private boolean eorb;  // Whether end of right batch
-    private int mergeState = 0;
+    private boolean soj;  // Start of join
+    private boolean eoj;  // End of join
+    private boolean eosl; // End of stream (left table)
+    private boolean eosr; // End of stream (right table)
+    private boolean nlb;  // Next left batch
+    private boolean nrb;  // Next right batch
+    private int lcurs;    // current left tuple
+    private int rcurs;    // current right tuple
+    private Vector<Tuple> leftTuples; // left tuples
+    private Vector<Tuple> rightTuples; // right tuples
+    private Vector<Tuple> storeTuples; // store tuples
+    private int state;
 
-    static int counter = 0;
+//    private int count;
+
     public SortMergeJoin(Join jn) {
         super(jn.getLeft(), jn.getRight(), jn.getCondition(), jn.getOpType());
         schema = jn.getSchema();
@@ -67,7 +65,7 @@ public class SortMergeJoin extends Join {
 
     public boolean open() {
 
-        /* select number of tuples per batch **/
+        /** select number of tuples per batch **/
         int tuplesize = schema.getTupleSize();
         batchsize = Batch.getPageSize() / tuplesize;
 
@@ -75,7 +73,6 @@ public class SortMergeJoin extends Join {
         Attribute rightattr = (Attribute) con.getRhs();
         leftAttrIndex = left.getSchema().indexOf(leftattr);
         rightAttrIndex = right.getSchema().indexOf(rightattr);
-        Batch rightpage;
 
         Vector leftAs = new Vector();
         leftAs.add(leftattr);
@@ -131,10 +128,20 @@ public class SortMergeJoin extends Join {
         }
 
         /* initialize the cursors of input buffers **/
-        leftStart = 0;
-        eolb = true;
-        rightStart = 0;
-        eorb = true;
+        state = 0;
+        lcurs = 0;
+        rcurs = 0;
+        soj = true;
+        eoj = false;
+        nlb = false;
+        nrb = false;
+        eosl = false;
+        eosr = false;
+        leftTuples = new Vector<>();
+        rightTuples = new Vector<>();
+        storeTuples = new Vector<>();
+
+//        count = 0;
 
         return true;
     }
@@ -144,438 +151,267 @@ public class SortMergeJoin extends Join {
      * * And returns a page of output tuples
      **/
 
-
     public Batch next() {
-        //System.out.print("SortMergeJoin:--------------------------in next----------------");
-        //Debug.PPrint(con);
-        //System.out.println();
-        int i, j;
 
-        if (eos) {
+        // end of join
+        if (eoj) {
+//            System.out.println("==== end of join ====");
             return null;
         }
+
+        // start of join
+        if (soj) {
+//            System.out.println("==== start of join ====");
+            leftBatch = leftScaner.next();
+            if (leftBatch == null) {
+                eosl = true;
+            }
+            rightBatch = rightScaner.next();
+            if (rightBatch == null) {
+                eosr = true;
+            }
+            soj = false;
+        }
+
         Batch outbatch = new Batch(batchsize);
 
+        while (!storeTuples.isEmpty() && !outbatch.isFull()) {
+//            System.out.println("==== restore out tuple ====");
+//            count++;
+//            System.out.println(count);
+            Tuple outTuple = storeTuples.get(0);
+//            System.out.println(outTuple.toString());
+            outbatch.add(outTuple);
+            storeTuples.remove(outTuple);
+        }
+
         while (!outbatch.isFull()) {
-            /* deal with read and end flag */
-            if (leftStart == 0 && eolb) {
-                leftBatch = leftScaner.next();
-                if (leftBatch == null || leftBatch.isEmpty()) {
-                    if (mergeState == 3) {
-                        mergeState = 5;
-                        try {
-                            out.close();
-                            counter--;
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        rightFirstMatchIdx = 0;
-                        rightStart = 0;
-                        eorb = true;
-                        eols = true;
+
+            if (eosr && eosl) {
+//                System.out.println("==== end of join 1 ====");
+                eoj = true;
+                return outbatch;
+            }
+
+            while (state == 0) {
+
+                // read next batch of left table
+                if (nlb) {
+                    leftBatch = leftScaner.next();
+                    nlb = false;
+                    if (leftBatch == null || leftBatch.isEmpty()) {
+                        eosl = true;
+//                        System.out.println("==== end of stream left ====");
                     }
-                    else {
-                        eos = true;
-                    }
-//                    return outbatch;
                 }
-                eolb = false;
-            }
-            if (rightStart == 0 && eorb) {
-                rightBatch = rightScaner.next();
-                if (rightBatch == null || rightBatch.isEmpty()) {
-                    eos = true;
-//                    return outbatch;
-                }
-                eorb = false;
-            }
-            /* deal with compare and state transition */
-            Tuple leftTuple = null;
-            Tuple rightTuple = null;
-            int cmpRst = 0;
-            if (!eos) {
-                leftTuple = leftBatch.elementAt(leftStart);
-                rightTuple = rightBatch.elementAt(rightStart);
-                cmpRst = Tuple.compareTuples(leftTuple, rightTuple, leftAttrIndex, rightAttrIndex);
-                int leftattr = (int) leftTuple.dataAt(leftAttrIndex);
-                int rightattr = (int) rightTuple.dataAt(rightAttrIndex);
-//                if (leftattr == 199 || rightattr == 199) {
-//                    if (schema.getTupleSize() == 400 && left.getSchema().getTupleSize() == 200)
-//                        System.out.println("hh");
-//                }
-            }
-            switch (mergeState) {
-                case 0:
-                    if (eos) {
-                        return outbatch;
-                    }
-                    if (cmpRst < 0) {
-                        if (leftStart != leftBatch.size() - 1) {
-                            leftStart++;
-                        }
-                        else {
-                            leftStart = 0;
-                            eolb = true;
-                        }
-                    }
-                    else if (cmpRst > 0) {
-                        if (rightStart != rightBatch.size() - 1) {
-                            rightStart++;
-                        }
-                        else {
-                            rightStart = 0;
-                            eorb = true;
-                        }
-                    }
-                    else {// cmpRst == 0
-                        Tuple outtuple = leftTuple.joinWith(rightTuple);
-                        outbatch.add(outtuple);
-                        leftFirstMatchIdx = leftStart;
-                        rightFirstMatchIdx = rightStart;
-                        leftLastTuple = leftTuple;
-                        if (leftStart != leftBatch.size() - 1) {
-                            mergeState = 1;
-                            leftStart++;
-                        }
-                        else if (rightStart != rightBatch.size() - 1) {
-                            mergeState = 2;
-                            rightStart++;
-                            leftMidMatchIdx = leftFirstMatchIdx;
-                        }
-                        else {
-                            mergeState = 3;
-                            Object joinAttr = leftTuple.dataAt(leftAttrIndex);
-                            try {
-                                out = new ObjectOutputStream(new FileOutputStream("SMJtemp.tbl"));
-                                counter++;
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
-                            flushCurrentLeftBatch(leftBatch, leftFirstMatchIdx, leftBatch.size(), joinAttr);
-                            leftStart = 0;
-                            eolb = true;
-                            rightMidMatchIdx = rightFirstMatchIdx;
-                        }
-                    }
-                    break;
-                case 1:
-                    if (eos) {
-                        return outbatch;
-                    }
-                    if (cmpRst < 0) {
-                        System.out.println("@@@@Something wrong happens during merge join!");
-                        System.exit(1);
-                    }
-                    else if (cmpRst > 0) {
-                        mergeState = 7;
-                        leftMidMatchIdx = leftFirstMatchIdx;
-                        if (rightStart != rightBatch.size() - 1) {
-                            rightStart++;
+
+                // end of left table
+                if (eosl) {
+                    if (!eosr) {
+                        if (rcurs == rightBatch.size() - 1) {
+                            rcurs = 0;
+                            nrb = true;
                         } else {
-                            rightStart = 0;
-                            eorb = true;
+                            rcurs++;
                         }
-                    }
-                    else {// cmpRst == 0
-                        Tuple outtuple = leftTuple.joinWith(rightTuple);
-                        outbatch.add(outtuple);
-                        if (leftStart != leftBatch.size() - 1) {
-                            leftStart++;
-                        }
-                        else if (rightStart != rightBatch.size() - 1) {
-                            mergeState = 2;
-                            rightStart++;
-                            leftMidMatchIdx = leftFirstMatchIdx;
-                        }
-                        else {
-                            mergeState = 3;
-                            Object joinAttr = leftTuple.dataAt(leftAttrIndex);
-                            try {
-                                out = new ObjectOutputStream(new FileOutputStream("SMJtemp.tbl"));
-                                counter++;
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
-                            flushCurrentLeftBatch(leftBatch, leftFirstMatchIdx, leftBatch.size(), joinAttr);
-                            leftStart = 0;
-                            eolb = true;
-                            rightMidMatchIdx = rightFirstMatchIdx;
-                        }
-                    }
-                    break;
-                case 2:
-                    if (eos) {
+                        state = 1;
+                        break;
+                    } else {
+                        eoj = true;
                         return outbatch;
                     }
-                    if (cmpRst < 0) {
-                        mergeState = 0;
-                        if (leftStart != leftBatch.size() - 1) {
-                            leftStart++;
-                        }
-                        else {
-                            leftStart = 0;
-                            eolb = true;
-                        }
-                    }
-                    else if (cmpRst > 0) {
-                        System.out.println("@@@@Something wrong happens during merge join!");
-                        System.exit(1);
-                    }
-                    else {// cmpRst == 0
-                        Tuple outtuple = leftBatch.elementAt(leftMidMatchIdx).joinWith(rightTuple);
-                        outbatch.add(outtuple);
-                        leftMidMatchIdx++;
-                        if (leftMidMatchIdx == leftBatch.size()) {
-                            if (rightStart != rightBatch.size() - 1) {
-                                rightStart++;
-                                leftMidMatchIdx = leftFirstMatchIdx;
-                            }
-                            else {
-                                mergeState = 3;
-                                Object joinAttr = leftTuple.dataAt(leftAttrIndex);
-                                try {
-                                    out = new ObjectOutputStream(new FileOutputStream("SMJtemp.tbl"));
-                                    counter++;
-                                } catch (IOException e) {
-                                    e.printStackTrace();
-                                }
-                                flushCurrentLeftBatch(leftBatch, leftFirstMatchIdx, leftBatch.size(), joinAttr);
-                                leftStart = 0;
-                                eolb = true;
-                                leftMidMatchIdx = -1;
-                                rightMidMatchIdx = rightFirstMatchIdx;
-                            }
-                        }
-                    }
-                    break;
-                case 3:
-                    if (eos) {
-                        try {
-                            out.close();
-                            counter--;
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        return outbatch;
-                    }
-                    if (cmpRst < 0) {
-                        System.out.println("@@@@Something wrong happens during merge join!");
-                        System.exit(1);
-                    }
-                    else if (cmpRst > 0) {
-                        mergeState = 5;
-                        Object joinAttr = leftTuple.dataAt(leftAttrIndex);
-                        flushCurrentLeftBatch(leftBatch, 0, leftStart, joinAttr);
-                        try {
-                            out.close();
-                            counter--;
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        rightFirstMatchIdx = 0;
-                        rightStart = 0;
-                        eorb = true;
-                    }
-                    else {// cmpRst == 0
-                        Tuple outtuple = leftTuple.joinWith(rightBatch.elementAt(rightMidMatchIdx));
-                        outbatch.add(outtuple);
-                        rightMidMatchIdx++;
-                        if (rightMidMatchIdx == rightBatch.size()) {
-                            rightMidMatchIdx = rightFirstMatchIdx;
-                            if (leftStart != leftBatch.size() - 1) {
-                                leftStart++;
+                }
+
+                // try to join each tuple in left batch with current right tuple
+                for (int i = lcurs; i < leftBatch.size(); i++) {
+//                    System.out.println(count);
+                    Tuple leftTuple = leftBatch.elementAt(i);
+                    if (!rightTuples.isEmpty() && Tuple.compareTuples(leftTuple, rightTuples.get(0), leftAttrIndex, rightAttrIndex) == 0) {
+//                        System.out.println("================ left ==============");
+//                        System.out.println(leftTuple.data());
+//                        System.out.println(rightTuples.get(0).data());
+                        for (Tuple tmpTuple : rightTuples) {
+                            Tuple outTuple = leftTuple.joinWith(tmpTuple);
+//                            System.out.println(outTuple.data());
+                            if (!outbatch.isFull()) {
+//                                count++;
+//                                System.out.println(count);
+                                outbatch.add(outTuple);
                             } else {
-                                mergeState = 3;
-                                Object joinAttr = leftTuple.dataAt(leftAttrIndex);
-                                flushCurrentLeftBatch(leftBatch, 0, leftBatch.size(), joinAttr);
-                                leftStart = 0;
-                                eolb = true;
+//                                System.out.println("==== store out tuple ====");
+//                                System.out.println(outTuple.toString());
+                                storeTuples.add(outTuple);
                             }
                         }
-                    }
-                    break;
-                case 4:
-                    /* dependencies: subLStart, rightFirstMatchIdx, subLeftScaner, */
-                    if (eos) {
-                        subLeftScaner.close();
-                        return outbatch;
-                    }
-                    if (subLStart == 0 && eoslb) {
-                        subLeftBatch = subLeftScaner.next();
-                        if (subLeftBatch == null || subLeftBatch.isEmpty()) {
-                            mergeState = 5;
-                            subLeftScaner.close();
-                            rightFirstMatchIdx = 0;
-                            rightStart = 0;
-                            eorb = true;
-                            break;
+                        if (outbatch.isFull()) {
+                            if (i == leftBatch.size() - 1) {
+                                lcurs = 0;
+                                nlb = true;
+                            } else {
+                                lcurs = i + 1;
+                            }
+                            return outbatch;
                         }
-                        else {
-                            eoslb = false;
-                            rightMidMatchIdx = rightFirstMatchIdx;
-                        }
-                    }
-                    for (i = subLStart; i < subLeftBatch.size(); i++) {
-                        for (j = rightMidMatchIdx; j < rightBatch.size(); j++) {
-                            Tuple lefttuple = subLeftBatch.elementAt(i);
-                            Tuple righttuple = rightBatch.elementAt(j);
-                            Tuple outtuple = lefttuple.joinWith(righttuple);
+                    } else if (!eosr) {
+                        // current right tuple exit
+                        Tuple rightTuple = rightBatch.elementAt(rcurs);
+                        int cmpRst = Tuple.compareTuples(leftTuple, rightTuple, leftAttrIndex, rightAttrIndex);
+                        if (cmpRst == 0) {
+                            Tuple outTuple = leftTuple.joinWith(rightTuple);
+                            outbatch.add(outTuple);
+//                            System.out.println(outTuple.data());
+//                            count++;
+//                            System.out.println(count);
+//                            System.out.println("right-------------------  " + count);
 
-                            //Debug.PPrint(outtuple);
-                            //System.out.println();
-                            outbatch.add(outtuple);
+                            leftTuples.add(leftTuple);
+
                             if (outbatch.isFull()) {
-                                if (i == subLeftBatch.size() - 1 && j == rightBatch.size() - 1) {//case 1
-                                    subLStart = 0;
-                                    eoslb = true;
-                                    rightMidMatchIdx = rightFirstMatchIdx;
-                                } else if (i != subLeftBatch.size() - 1 && j == rightBatch.size() - 1) {//case 2
-                                    subLStart = i + 1;
-                                    rightMidMatchIdx = rightFirstMatchIdx;
+                                if (i == leftBatch.size() - 1) {
+                                    lcurs = 0;
+                                    nlb = true;
                                 } else {
-                                    subLStart = i;
-                                    rightMidMatchIdx = j + 1;
+                                    lcurs = i + 1;
                                 }
                                 return outbatch;
                             }
-                        }
-                        rightMidMatchIdx = rightFirstMatchIdx;
-                    }
-                    subLStart = 0;
-                    eoslb = true;
-                    break;
-                case 5:
-                    if (eos) {
-                        return outbatch;
-                    }
-                    cmpRst = Tuple.compareTuples(leftLastTuple, rightTuple, leftAttrIndex, rightAttrIndex);
-                    if (cmpRst < 0) {
-                        if (eols) {
-                            eos = true;
-                        }
-                        mergeState = 6;
-                        subLeftScaner = new Scan("SMJtemp", OpType.SCAN);
-                        subLeftScaner.setSchema(left.getSchema());
-                        if (!subLeftScaner.open()) {
-                            System.out.println("@@@@Oops! open error!");
-                            System.exit(2);
-                        }
-                        subLStart = 0;
-                        eoslb = true;
-                        rightMidMatchIdx = 0;
-                        assert rightFirstMatchIdx == 0;
-                    }
-                    else if (cmpRst > 0) {
-                        System.out.println("@@@@Something wrong happens during merge join!");
-                        System.exit(1);
-                    }
-                    else {// cmpRst == 0
-                        if (rightStart != rightBatch.size() - 1) {
-                            rightStart++;
-                        }
-                        else {
-                            mergeState = 4;
-                            subLeftScaner = new Scan("SMJtemp", OpType.SCAN);
-                            subLeftScaner.setSchema(left.getSchema());
-                            if (!subLeftScaner.open()) {
-                                System.out.println("@@@@Oops! open error!");
-                                System.exit(2);
+                        } else if (cmpRst > 0) {
+                            rightTuples.clear();
+                            state = 1;
+                            lcurs = i;
+                            if (rcurs == rightBatch.size() - 1) {
+                                rcurs = 0;
+                                nrb = true;
+                            } else {
+                                rcurs++;
                             }
-                            subLStart = 0;
-                            eoslb = true;
-                            rightMidMatchIdx = rightFirstMatchIdx;
-                            assert rightFirstMatchIdx==0;
+                            break;
+                        } else {
+                            leftTuples.clear();
+                            rightTuples.clear();
                         }
-                    }
-                    break;
-                case 6:
-                    /* dependencies: subLStart, rightFirstMatchIdx, subLeftScaner, rightStart, */
-                    if (eos) {
-                        subLeftScaner.close();
+
+                        // read next batch
+                        if (i == leftBatch.size() - 1) {
+                            lcurs = 0;
+                            nlb = true;
+                        }
+                    } else if (eosr) {
+//                        System.out.println("==== end of join left ====");
+                        eoj = true;
                         return outbatch;
                     }
-                    if (subLStart == 0 && eoslb) {
-                        subLeftBatch = subLeftScaner.next();
-                        if (subLeftBatch == null || subLeftBatch.isEmpty()) {
-                            mergeState = 0;
-                            subLeftScaner.close();
-                            break;
-                        }
-                        else {
-                            eoslb = false;
-                            rightMidMatchIdx = 0;
-                        }
-                    }
-                    for (i = subLStart; i < subLeftBatch.size(); i++) {
-                        for (j = rightMidMatchIdx; j < rightStart; j++) {
-                            Tuple lefttuple = subLeftBatch.elementAt(i);
-                            Tuple righttuple = rightBatch.elementAt(j);
-                            Tuple outtuple = lefttuple.joinWith(righttuple);
+                }
+            }
 
-                            //Debug.PPrint(outtuple);
-                            //System.out.println();
-                            outbatch.add(outtuple);
+            while (state == 1) {
+
+                if (nrb) {
+                    rightBatch = rightScaner.next();
+                    nrb = false;
+                    if (rightBatch == null || rightBatch.isEmpty()) {
+                        eosr = true;
+//                        System.out.println("==== end of stream right ====");
+                    }
+                }
+
+                if (eosr) {
+                    if (!eosl) {
+                        if (lcurs == leftBatch.size() - 1) {
+                            lcurs = 0;
+                            nlb = true;
+                        } else {
+                            lcurs++;
+                        }
+                        state = 0;
+                        break;
+                    } else {
+                        eoj = true;
+                        return outbatch;
+                    }
+                }
+
+//                System.out.println(rightBatch.size());
+                for (int i = rcurs; i < rightBatch.size(); i++) {
+                    Tuple rightTuple = rightBatch.elementAt(i);
+                    if (!leftTuples.isEmpty() && Tuple.compareTuples(leftTuples.get(0), rightTuple, leftAttrIndex, rightAttrIndex) == 0) {
+//                        System.out.println("================ right ==============");
+//                        System.out.println(rightTuple.data());
+//                        System.out.println(leftTuples.get(0).data());
+                        for (Tuple tmpTuple : leftTuples) {
+                            Tuple outTuple = tmpTuple.joinWith(rightTuple);
+//                            System.out.println(outTuple.data());
+                            if (!outbatch.isFull()) {
+//                                count++;
+//                                System.out.println(count);
+                                outbatch.add(outTuple);
+                            } else {
+//                                System.out.println("==== store out tuple ====");
+//                                System.out.println(outTuple.toString());
+                                storeTuples.add(outTuple);
+                            }
+                        }
+//                        System.out.println("================ end right ==============");
+                        if (outbatch.isFull()) {
+                            if (i == rightBatch.size() - 1) {
+                                rcurs = 0;
+                                nrb = true;
+                            } else {
+                                rcurs = i + 1;
+                            }
+                            return outbatch;
+                        }
+                    } else if (!eosl) {
+                        Tuple leftTuple = leftBatch.elementAt(lcurs);
+                        int cmpRst = Tuple.compareTuples(rightTuple, leftTuple, rightAttrIndex, leftAttrIndex);
+                        if (cmpRst == 0) {
+                            Tuple outTuple = leftTuple.joinWith(rightTuple);
+                            outbatch.add(outTuple);
+//                            System.out.println(outTuple.data());
+//                            count++;
+//                            System.out.println("left-------------------  " + count);
+
+                            rightTuples.add(rightTuple);
+
                             if (outbatch.isFull()) {
-                                if (i == subLeftBatch.size() - 1 && j == rightStart) {//case 1
-                                    subLStart = 0;
-                                    eoslb = true;
-                                    rightMidMatchIdx = 0;
-                                } else if (i != subLeftBatch.size() - 1 && j == rightStart) {//case 2
-                                    subLStart = i + 1;
-                                    rightMidMatchIdx = 0;
+                                if (i == rightBatch.size() - 1) {
+                                    rcurs = 0;
+                                    nrb = true;
                                 } else {
-                                    subLStart = i;
-                                    rightMidMatchIdx = j + 1;
+                                    rcurs = i + 1;
                                 }
                                 return outbatch;
                             }
+                        } else if (cmpRst > 0) {
+                            leftTuples.clear();
+                            state = 0;
+                            rcurs = i;
+                            if (lcurs == leftBatch.size() - 1) {
+                                lcurs = 0;
+                                nlb = true;
+                            } else {
+                                lcurs++;
+                            }
+                            break;
+                        } else {
+                            leftTuples.clear();
+                            rightTuples.clear();
                         }
-                        rightMidMatchIdx = 0;
-                    }
-                    subLStart = 0;
-                    eoslb = true;
-                    break;
-                case 7:
-                    if (eos) {
+
+                        if (i == rightBatch.size() - 1) {
+                            rcurs = 0;
+                            nrb = true;
+                        }
+                    } else if (eosl) {
+//                        System.out.println("==== end of join right ====");
+                        eoj = true;
                         return outbatch;
                     }
-                    cmpRst = Tuple.compareTuples(leftLastTuple, rightTuple, leftAttrIndex, rightAttrIndex);
-                    if (cmpRst < 0) {
-                        mergeState = 0;
-                    }
-                    else if (cmpRst > 0) {
-                        System.out.println("@@@@Something wrong happens during merge join!");
-                        System.exit(1);
-                    }
-                    else {// cmpRst == 0
-                        Tuple outtuple = leftBatch.elementAt(leftMidMatchIdx).joinWith(rightTuple);
-                        outbatch.add(outtuple);
-                        leftMidMatchIdx++;
-                        if (leftMidMatchIdx == leftBatch.size() || leftMidMatchIdx == leftStart) {
-                            leftMidMatchIdx = leftFirstMatchIdx;
-                            if (rightStart != rightBatch.size() - 1) {
-                                rightStart++;
-                            }
-                            else {
-                                rightStart = 0;
-                                eorb = true;
-                            }
-                        }
-                    }
-                    break;
+                }
             }
         }
+
         return outbatch;
-    }
-
-    private void flushCurrentLeftBatch(Batch leftBatch, int leftTupleFrom, int leftTupleTo, Object joinAttr) {
-        try {
-            for (int i = leftTupleFrom; i < leftTupleTo; i++) {
-                out.writeObject(leftBatch.elementAt(i));
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
     }
 
 
@@ -585,20 +421,16 @@ public class SortMergeJoin extends Join {
     public boolean close() {
         leftScaner.close();
         rightScaner.close();
-        System.out.println("out counter:" + counter);
-        boolean flag1, flag2, flag3;
-        File f = new File("SMJtemp.tbl");
-//        subLeftScaner.close();
-        flag1 = f.delete(); // I dont't know why, but I can not delete this file successfully.
-        System.out.println(flag1);
+        boolean flag1, flag2;
+        File f;
         f = new File("LeftSortedTable.tbl");
-        flag2 = f.delete();
+        flag1 = f.delete();
         f = new File("RightSortedTable.tbl");
-        flag3 = f.delete();
-        if (!flag2 || !flag3) {
+        flag2 = f.delete();
+        if (!flag1 || !flag2) {
             return false;
         }
-        return flag2 && flag3;
+        return flag1 && flag2;
 
     }
 

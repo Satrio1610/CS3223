@@ -31,28 +31,28 @@ public class QueryMain {
         /** Enter the number of bytes per page **/
 
         System.out.println("enter the number of bytes per page");
-//	    BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
+	    BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
         String temp = "100000";
-        System.out.println("@@@@number of bytes per page: " + temp);
+//        System.out.println("@@@@number of bytes per page: " + temp);
         try {
-//		temp = in.readLine();
+		temp = in.readLine();
             int pagesize = Integer.parseInt(temp);
-            temp = "10000";
-            System.out.println("@@@@number of pages: " + temp);
+//            temp = "100000";
+//            System.out.println("@@@@number of pages: " + temp);
             Batch.setPageSize(pagesize);
         } catch (Exception e) {
             e.printStackTrace();
         }
-//	String queryfile = args[0];
-//	String resultfile = args[1];
-        String queryfile = "eq2.sql";
-        System.out.println("@@@@queryfile: " + queryfile);
+	String queryfile = args[0];
+	String resultfile = args[1];
+//        String queryfile = "e2q.sql";
+//        System.out.println("@@@@que ryfile: " + queryfile);
 
-        String resultfile;
-        resultfile = "m1.txt";
-        resultfile = "m2.txt";
-//        resultfile = "m3.txt";
-//        resultfile = "m4.txt";
+//        String resultfile;
+//        resultfile = "m1.txt";
+//        resultfile = "m2.txt";
+////        resultfile = "m3.txt";
+////        resultfile = "m4.txt";
         FileInputStream source = null;
         try {
             source = new FileInputStream(queryfile);
@@ -96,7 +96,7 @@ public class QueryMain {
             System.out.println("enter the number of buffers available");
 
             try {
-//		temp = in.readLine();
+		temp = in.readLine();
                 int numBuff = Integer.parseInt(temp);
                 BufferManager bm = new BufferManager(numBuff, numJoin, sqlquery.isDistinct());
             } catch (Exception e) {
@@ -132,7 +132,7 @@ public class QueryMain {
          **/
         RandomOptimizer ro;
         ro = new RandomOptimizer(sqlquery);
-//        ro = new RandomOptimizer_SimulatedAnnealing(sqlquery);
+        ro = new RandomOptimizer_SimulatedAnnealing(sqlquery);
         Operator logicalroot = ro.getOptimizedPlan();
         if (logicalroot == null) {
             System.out.println("root is null");
@@ -156,11 +156,11 @@ public class QueryMain {
 
 
         try {
-//		temp = in.readLine();
-//		int flag = Integer.parseInt(temp);
-//		if(flag==0){
-//			System.exit(1);
-//		}
+		temp = in.readLine();
+		int flag = Integer.parseInt(temp);
+		if(flag==0){
+			System.exit(1);
+		}
 
         } catch (Exception e) {
             e.printStackTrace();

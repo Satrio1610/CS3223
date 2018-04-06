@@ -19,7 +19,7 @@ public class ConvertTxtToTbl {
             System.out.println("usage: java ConvertTxtToTbl <tablename> \n creats <tablename>.tbl files");
             System.exit(1);
         }
-        args[0] = "SCHEDULE";
+        args[0] = "BILL";
         String tblname = args[0];
         String mdfile = tblname + ".md";
         String tblfile = tblname + ".tbl";
